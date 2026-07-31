@@ -41,6 +41,14 @@ class CategoriaRepository implements CategoriaRepositoryInterface
         return $stmt->fetchAll();
     }
 
+    public function encontrarActivaPorId(int $id): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT id, nombre FROM categorias WHERE id = ? AND activo = TRUE');
+        $stmt->execute([$id]);
+
+        return $stmt->fetch() ?: null;
+    }
+
     public function existeNombreActivo(string $nombre, ?int $excluirId = null): bool
     {
         $sql = 'SELECT id FROM categorias WHERE nombre = ? AND activo = TRUE';
