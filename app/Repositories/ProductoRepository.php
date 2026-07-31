@@ -700,4 +700,155 @@ class ProductoRepository implements ProductoRepositoryInterface
 
         return (float) ($stmt->fetch()['valor_total'] ?? 0);
     }
+
+    public function bajoStock(?int $sucursalId): array
+    {
+        $sql = "SELECT
+                p.codigo, p.nombre, c.nombre as categoria, p.descripcion, p.precio,
+                SUM(COALESCE(ps.stock, 0)) as stock_total,
+                MIN(COALESCE(ps.stock_minimo, 0)) as stock_minimo_total,
+                CASE
+                    WHEN SUM(COALESCE(ps.stock, 0)) <= 0 THEN 'AGOTADO'
+                    WHEN SUM(COALESCE(ps.stock, 0)) <= MIN(COALESCE(ps.stock_minimo, 0)) THEN 'BAJO STOCK'
+                    ELSE 'DISPONIBLE'
+                END as estado_stock";
+
+        $params = [];
+
+        if ($sucursalId) {
+            $sql .= ', COALESCE((SELECT ps2.stock FROM producto_sucursal ps2
+                        WHERE ps2.producto_id = p.id AND ps2.sucursal_id = ?), 0) as stock_sucursal';
+            $params[] = $sucursalId;
+        }
+
+        $sql .= ' FROM productos p
+             LEFT JOIN categorias c ON p.categoria_id = c.id
+             LEFT JOIN producto_sucursal ps ON p.id = ps.producto_id
+             WHERE p.activo = 1';
+
+        if ($sucursalId) {
+            $sql .= ' AND EXISTS (SELECT 1 FROM producto_sucursal ps2
+                        WHERE ps2.producto_id = p.id AND ps2.sucursal_id = ?)';
+            $params[] = $sucursalId;
+        }
+
+        $sql .= ' GROUP BY p.id, p.codigo, p.nombre, p.descripcion, p.precio, c.nombre
+             HAVING stock_total <= stock_minimo_total OR stock_total <= 0
+             ORDER BY estado_stock, stock_total ASC';
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+
+        $filas = $stmt->fetchAll();
+
+        // Normaliza a una sola columna "stock" (total o de la sucursal
+        // filtrada) para que quien llame no tenga que saber cuál de las
+        // dos usar — igual decisión que hacía el original al leer la fila.
+        return array_map(function (array $fila) use ($sucursalId) {
+            return [
+                'codigo'        => $fila['codigo'],
+                'nombre'        => $fila['nombre'],
+                'categoria'     => $fila['categoria'],
+                'descripcion'   => $fila['descripcion'],
+                'precio'        => $fila['precio'],
+                'stock'         => $sucursalId ? $fila['stock_sucursal'] : $fila['stock_total'],
+                'stock_minimo'  => $fila['stock_minimo_total'],
+                'estado_stock'  => $fila['estado_stock'],
+            ];
+        }, $filas);
+    }
+
+    public function inventarioCompleto(?int $sucursalId, ?int $categoriaId, string $filtroStock): array
+    {
+        $sql = 'SELECT
+                p.codigo, p.nombre, c.nombre as categoria_nombre, p.descripcion, p.precio,
+                COALESCE(SUM(ps.stock), 0) as stock_total,
+                COALESCE(MIN(ps.stock_minimo), 0) as stock_minimo_total,
+                CASE WHEN p.activo = 1 THEN \'Activo\' ELSE \'Inactivo\' END as estado,
+                DATE_FORMAT(p.fecha_actualizacion, \'%d/%m/%Y %H:%i\') as fecha_actualizacion';
+
+        $params = [];
+
+        if ($sucursalId) {
+            $sql .= ', COALESCE((SELECT ps2.stock FROM producto_sucursal ps2
+                        WHERE ps2.producto_id = p.id AND ps2.sucursal_id = ?), 0) as stock_sucursal';
+            $params[] = $sucursalId;
+        }
+
+        $sql .= ' FROM productos p
+             LEFT JOIN categorias c ON p.categoria_id = c.id
+             LEFT JOIN producto_sucursal ps ON p.id = ps.producto_id
+             WHERE 1=1';
+
+        if ($sucursalId) {
+            $sql .= ' AND EXISTS (SELECT 1 FROM producto_sucursal ps2
+                        WHERE ps2.producto_id = p.id AND ps2.sucursal_id = ?)';
+            $params[] = $sucursalId;
+        }
+
+        if ($categoriaId) {
+            $sql .= ' AND p.categoria_id = ?';
+            $params[] = $categoriaId;
+        }
+
+        $sql .= ' GROUP BY p.id, p.codigo, p.nombre, p.descripcion, p.precio, p.activo, p.fecha_actualizacion, c.nombre';
+
+        $sql .= match ($filtroStock) {
+            'bajo'   => ' HAVING (stock_total <= stock_minimo_total AND stock_total > 0)',
+            'sin'    => ' HAVING stock_total = 0',
+            'normal' => ' HAVING stock_total > stock_minimo_total',
+            default  => '',
+        };
+
+        $sql .= ' ORDER BY p.nombre ASC';
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+
+        $filas = $stmt->fetchAll();
+
+        return array_map(function (array $fila) use ($sucursalId) {
+            $fila['stock'] = $sucursalId ? $fila['stock_sucursal'] : $fila['stock_total'];
+
+            return $fila;
+        }, $filas);
+    }
+
+    public function contarBajoYSinStock(?int $sucursalId, ?int $categoriaId): array
+    {
+        $sqlBase = 'SELECT p.id, COALESCE(SUM(ps.stock), 0) as stock_total,
+                COALESCE(MIN(ps.stock_minimo), 0) as stock_minimo_total
+             FROM productos p
+             LEFT JOIN producto_sucursal ps ON p.id = ps.producto_id
+             WHERE p.activo = 1';
+
+        $params = [];
+
+        if ($sucursalId) {
+            $sqlBase .= ' AND EXISTS (SELECT 1 FROM producto_sucursal ps2
+                        WHERE ps2.producto_id = p.id AND ps2.sucursal_id = ?)';
+            $params[] = $sucursalId;
+        }
+
+        if ($categoriaId) {
+            $sqlBase .= ' AND p.categoria_id = ?';
+            $params[] = $categoriaId;
+        }
+
+        $sqlBase .= ' GROUP BY p.id';
+
+        $stmtBajo = $this->pdo->prepare(
+            "SELECT COUNT(*) as total FROM ({$sqlBase}) as subquery WHERE stock_total <= stock_minimo_total AND stock_total > 0"
+        );
+        $stmtBajo->execute($params);
+        $bajoStock = (int) ($stmtBajo->fetch()['total'] ?? 0);
+
+        $stmtSin = $this->pdo->prepare(
+            "SELECT COUNT(*) as total FROM ({$sqlBase}) as subquery WHERE stock_total = 0"
+        );
+        $stmtSin->execute($params);
+        $sinStock = (int) ($stmtSin->fetch()['total'] ?? 0);
+
+        return ['bajo_stock' => $bajoStock, 'sin_stock' => $sinStock];
+    }
 }
