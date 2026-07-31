@@ -10,6 +10,9 @@ interface CategoriaRepositoryInterface
     /** Categorías activas con el conteo TOTAL de productos activos (sin filtrar por sucursal/stock) — para la gestión de categorías. */
     public function todasConConteoTotal(): array;
 
+    /** @return array{id:int, nombre:string}|null */
+    public function encontrarActivaPorId(int $id): ?array;
+
     public function existeNombreActivo(string $nombre, ?int $excluirId = null): bool;
 
     /** @return int ID de la categoría creada */
