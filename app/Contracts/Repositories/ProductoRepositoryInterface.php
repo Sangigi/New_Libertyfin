@@ -141,4 +141,24 @@ interface ProductoRepositoryInterface
     public function estadisticas(float $stockMinimo): array;
 
     public function valorTotalInventario(): float;
+
+    /**
+     * Productos agotados o por debajo de su stock mínimo — para el
+     * reporte de reabastecimiento. Si $sucursalId es null, agrega
+     * stock de todas las sucursales; si no, solo esa.
+     *
+     * @return array cada fila: codigo, nombre, categoria, descripcion, precio, stock, stock_minimo, estado_stock
+     */
+    public function bajoStock(?int $sucursalId): array;
+
+    /**
+     * Listado completo de inventario con filtros combinables de
+     * sucursal/categoría/nivel de stock — para el reporte de inventario
+     * completo (distinto de bajoStock(), que siempre filtra a solo lo
+     * que necesita reabastecerse).
+     */
+    public function inventarioCompleto(?int $sucursalId, ?int $categoriaId, string $filtroStock): array;
+
+    /** @return array{bajo_stock:int, sin_stock:int} con los mismos filtros de sucursal/categoría que inventarioCompleto() */
+    public function contarBajoYSinStock(?int $sucursalId, ?int $categoriaId): array;
 }
