@@ -31,10 +31,11 @@ class EmpresaRepository implements EmpresaRepositoryInterface
         return $row ? (int) $row['id'] : null;
     }
 
+    /** @return array{plan:string, facturapi_organization_id:?string, timbres_totales:int, timbres_disponibles:int}|null */
     public function findPlanInfo(int $empresaId): ?array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT plan, timbres_totales, timbres_disponibles FROM empresas WHERE id = ?'
+            'SELECT plan, facturapi_organization_id, timbres_totales, timbres_disponibles FROM empresas WHERE id = ?'
         );
         $stmt->execute([$empresaId]);
 

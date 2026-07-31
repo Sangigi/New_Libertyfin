@@ -30,4 +30,14 @@ class UsuarioRepository implements UsuarioRepositoryInterface
         $stmt = $this->pdo->prepare('UPDATE usuarios SET password = ? WHERE id = ?');
         $stmt->execute([$newHash, $userId]);
     }
+
+    public function porSucursal(int $sucursalId): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT id, nombre FROM usuarios WHERE sucursal_id = ? ORDER BY nombre'
+        );
+        $stmt->execute([$sucursalId]);
+
+        return $stmt->fetchAll();
+    }
 }

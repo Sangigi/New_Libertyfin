@@ -30,7 +30,9 @@ class Config
                 'db_main'    => Env::get('DB_MAIN'),
             ],
             'facturapi' => [
-                'api_key' => Env::get('FACTURAPI_API_KEY'),
+                'api_key'               => Env::get('FACTURAPI_API_KEY'),
+                'master_api_key'        => Env::get('FACTURAPI_MASTER_API_KEY'),
+                'test_api_key_fallback' => Env::get('FACTURAPI_TEST_API_KEY_FALLBACK'),
             ],
             'cpanel' => [
                 'host'      => Env::get('CPANEL_HOST'),

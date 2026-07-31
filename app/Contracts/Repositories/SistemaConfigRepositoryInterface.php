@@ -8,6 +8,12 @@ namespace App\Contracts\Repositories;
  */
 interface SistemaConfigRepositoryInterface
 {
-    /** @return array{nombre_empresa:?string, rfc:?string, telefono:?string, email:?string, color_primario:?string, color_secundario:?string, logo:?string}|null */
+    /** @return array{nombre_empresa:?string, rfc:?string, telefono:?string, email:?string, direccion:?string, color_primario:?string, color_secundario:?string, logo:?string, iva:?float, moneda:?string, stock_minimo_global:?int}|null */
     public function actual(): ?array;
+
+    /** Api key de prueba de Facturapi cacheada en una entrega anterior (columna puede no existir aún). */
+    public function facturapiTestApiKeyCache(): ?string;
+
+    /** Guarda la api key de prueba de Facturapi en caché, creando la columna si hace falta. */
+    public function guardarFacturapiTestApiKeyCache(string $key): void;
 }

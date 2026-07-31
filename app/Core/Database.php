@@ -73,12 +73,6 @@ class Database
         return self::$pool[$dbname] = $pdo;
     }
 
-    /** Alias semántico de pdo() para conexión a la BD de una empresa. */
-    public static function forEmpresa(string $dbname): PDO
-    {
-        return self::pdo($dbname);
-    }
-
     /**
      * Cierra todas las conexiones del pool. Normalmente no hace falta:
      * PHP cierra las conexiones al terminar el request. Útil en

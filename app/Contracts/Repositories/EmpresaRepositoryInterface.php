@@ -13,6 +13,6 @@ interface EmpresaRepositoryInterface
 
     public function findIdByDbName(string $dbName): ?int;
 
-    /** @return array{plan:string, timbres_totales:int, timbres_disponibles:int}|null */
+    /** @return array{plan:string, facturapi_organization_id:?string, timbres_totales:int, timbres_disponibles:int}|null */
     public function findPlanInfo(int $empresaId): ?array;
 }

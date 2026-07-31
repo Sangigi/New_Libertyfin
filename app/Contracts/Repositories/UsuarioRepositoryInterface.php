@@ -13,4 +13,7 @@ interface UsuarioRepositoryInterface
     public function findActiveByUsernameOrEmail(string $usuario): ?array;
 
     public function updatePasswordHash(int $userId, string $newHash): void;
+
+    /** @return array<int, array{id:int, nombre:string}> usuarios de una sucursal, para filtros/selects */
+    public function porSucursal(int $sucursalId): array;
 }
